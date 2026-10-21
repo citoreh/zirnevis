@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zirnevis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Vazirmatn:wght@400;500;700;800&display=swap">
+<style>
+/* Layout: a two-pane subtitling desk. Left = the job (source, engine, rules), right = the result (player, chunk strip, cues). */
+:root{
+  --bg:#eceef2; --surface:#ffffff; --sunk:#f4f5f8; --ink:#161b26; --muted:#5a6376; --line:#d3d8e1;
+  --lapis:#2a46a0; --lapis-soft:#e3e8f7; --saffron:#c98a12; --ok:#2e7a4d; --err:#b0322b;
+  --font-ui:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-fa:'Vazirmatn',Tahoma,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1218; --surface:#171b24; --sunk:#1d2230; --ink:#e6e9f0; --muted:#97a0b3; --line:#2a3141;
+  --lapis:#8ea6f2; --lapis-soft:#222b45; --saffron:#f0b440; --ok:#61c189; --err:#ef6f66; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b24; --sunk:#1d2230; --ink:#e6e9f0; --muted:#97a0b3; --line:#2a3141;
+  --lapis:#8ea6f2; --lapis-soft:#222b45; --saffron:#f0b440; --ok:#61c189; --err:#ef6f66; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header .fa{font:800 34px/1 var(--font-fa);color:var(--lapis)}
+header h1{font:600 20px/1.2 var(--font-ui);margin:0;letter-spacing:.01em}
+header p{margin:0;color:var(--muted);flex-basis:100%}
+.app{display:grid;grid-template-columns:minmax(300px,390px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:880px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.step{display:flex;flex-direction:column;gap:10px}
+.step+.step{border-top:1px solid var(--line);padding-top:14px}
+.label{font:600 11px/1 var(--font-ui);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
+.label b{font:500 11px/1 var(--font-mono);color:var(--lapis)}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:var(--sunk);transition:border-color .15s}
+.drop:hover,.drop.over{border-color:var(--lapis)}
+.drop strong{display:block}
+.drop small{color:var(--muted)}
+.fileinfo{font:12px/1.4 var(--font-mono);color:var(--muted);word-break:break-all}
+.engines{display:flex;flex-direction:column;gap:6px}
+.engine{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:7px;cursor:pointer}
+.engine:has(input:checked){border-color:var(--lapis);background:var(--lapis-soft)}
+.engine input{margin:0;accent-color:var(--lapis)}
+.engine span{font-weight:500}
+.engine small{grid-column:2;color:var(--muted);font-size:12px;line-height:1.35}
+.engine .pick{font:600 10px/1 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--saffron);margin-inline-start:6px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:12px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  font:inherit;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+textarea{resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.drop:focus-visible{outline:2px solid var(--lapis);outline-offset:1px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px}
+.check input{accent-color:var(--lapis)}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button{font:500 13px/1 var(--font-ui);border-radius:6px;padding:10px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--lapis);border-color:var(--lapis);color:var(--surface);font-weight:600;flex:1}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.ghost{background:transparent}
+.stage{position:relative;background:#000;border-radius:8px;overflow:hidden;min-height:120px;display:flex;align-items:center;justify-content:center}
+.stage video{width:100%;max-height:420px;display:block}
+.stage audio{width:calc(100% - 24px);margin:60px 12px}
+.stage .empty{color:#9aa3b5;font-size:13px;padding:40px 16px;text-align:center}
+.caption{position:absolute;left:8%;right:8%;bottom:14%;text-align:center;pointer-events:none}
+.caption span{display:inline;font:600 clamp(15px,2.4vw,24px)/1.55 var(--font-fa);color:#fff;background:rgba(0,0,0,.62);padding:2px 10px;border-radius:4px;white-space:pre-line;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.strip{display:flex;gap:2px;height:14px;background:var(--sunk);border-radius:3px;padding:2px;overflow:hidden}
+.strip i{flex:1 1 0;min-width:2px;border-radius:2px;background:var(--line)}
+.strip i.active{background:var(--saffron);animation:pulse 1s ease-in-out infinite alternate}
+.strip i.done{background:var(--lapis)}
+.strip i.fail{background:var(--err)}
+@keyframes pulse{from{opacity:.45}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.strip i.active{animation:none}}
+.status{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px}
+.status .msg{color:var(--muted)}
+.status .msg.err{color:var(--err)}
+.status .count{font:500 12px var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 10px;color:var(--muted)}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--lapis)}
+.cues{max-height:420px;overflow:auto;display:flex;flex-direction:column}
+.cue{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:12px;align-items:start;text-align:start;padding:8px 6px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;font-weight:400;line-height:1.4}
+.cue:hover{background:var(--sunk)}
+.cue.now{background:var(--lapis-soft)}
+.cue .n{font:12px var(--font-mono);color:var(--muted);min-width:2.2em;font-variant-numeric:tabular-nums}
+.cue .t{font:12px var(--font-mono);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cue .x{font:500 15px/1.6 var(--font-fa);white-space:pre-line;unicode-bidi:plaintext;text-align:start;min-width:0}
+#srt{font:14px/1.7 var(--font-fa);min-height:420px;unicode-bidi:plaintext;text-align:start}
+.example{font-size:12px;color:var(--saffron);margin:0}
+.log{font:12px/1.5 var(--font-mono);color:var(--muted);background:var(--sunk);border-radius:6px;padding:8px 10px;max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.log .e{color:var(--err)}
+details summary{cursor:pointer;color:var(--muted);font-size:12px}
+code{font:12px var(--font-mono);background:var(--sunk);padding:1px 5px;border-radius:4px;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="fa" lang="fa">زیرنویس</span>
+    <h1>Zirnevis</h1>
+    <p>Turn Persian audio or video into a timed SRT. Pick a speech engine, paste its API key, drop a file.</p>
+  </header>
+
+  <div class="app">
+    <!-- LEFT: the job -->
+    <section class="panel" aria-label="Job settings">
+      <div class="step">
+        <div class="label"><b>1</b> Source</div>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose an audio or video file">
+          <strong>Drop audio or video here</strong>
+          <small>or click to choose · mp3, wav, m4a, mp4, mov, webm…</small>
+          <input type="file" id="file" accept="audio/*,video/*" hidden>
+        </div>
+        <div class="fileinfo" id="fileinfo">No file chosen</div>
+      </div>
+
+      <div class="step">
+        <div class="label"><b>2</b> Engine</div>
+        <div class="engines" id="engines"></div>
+        <div class="row">
+          <label class="field"><span>Model</span><input type="text" id="model" list="models" autocomplete="off"><datalist id="models"></datalist></label>
+          <label class="field"><span>Language</span>
+            <select id="lang">
+              <option value="fa-IR">Persian (Iran)</option>
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="ar-SA">Arabic</option>
+            </select>
+          </label>
+        </div>
+        <label class="field"><span id="keylabel">API key</span><input type="password" id="key" autocomplete="off" spellcheck="false"></label>
+        <label class="check"><input type="checkbox" id="remember"> Remember this key in this browser</label>
+        <p class="hint" id="keyhint"></p>
+      </div>
+
+      <div class="step">
+        <div class="label"><b>3</b> Subtitle rules</div>
+        <div class="row">
+          <label class="field"><span>Max characters per line</span><input type="number" id="maxChars" min="20" max="80" value="42"></label>
+          <label class="field"><span>Max seconds per cue</span><input type="number" id="maxDur" min="2" max="12" step="0.5" value="6"></label>
+        </div>
+        <label class="field"><span>Names and terms to help recognition (comma-separated)</span>
+          <input type="text" id="glossary" dir="auto" placeholder="مثلاً: کیارستمی، شهرزاد، تهران">
+        </label>
+        <label class="check"><input type="checkbox" id="normalize" checked> Normalise Arabic ي/ك to Persian ی/ک</label>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="run" disabled>Generate subtitles</button>
+        <button id="stop" hidden>Stop</button>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="test">Test connection and key</button>
+        <button class="ghost" id="retry" hidden>Retry failed pieces</button>
+      </div>
+      <p class="hint">Keys stay in this browser and are sent only to the engine you pick.</p>
+    </section>
+
+    <!-- RIGHT: the result -->
+    <section class="panel" aria-label="Result">
+      <div class="stage" id="stage"><div class="empty">Your file plays here with the subtitles on top.</div></div>
+
+      <div class="step" style="gap:6px">
+        <div class="strip" id="strip" aria-hidden="true"><i></i></div>
+        <div class="status"><span class="msg" id="msg">Ready</span><span class="count" id="count"></span></div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="list">Cues</button>
+        <button role="tab" aria-selected="false" data-tab="text">Edit SRT</button>
+      </div>
+      <p class="example" id="example">Example cues. They are replaced when you transcribe a file.</p>
+      <div class="cues" id="cues"></div>
+      <textarea id="srt" spellcheck="false" hidden></textarea>
+
+      <div class="actions">
+        <button id="dlSrt">Download .srt</button>
+        <button id="dlVtt">Download .vtt</button>
+        <button id="copy">Copy SRT</button>
+      </div>
+
+      <details>
+        <summary>Log and tips</summary>
+        <div class="log" id="log"></div>
+        <p class="hint" style="margin-top:8px">For long films, extract the audio first so the browser does not load the whole video into memory:<br>
+        <code>ffmpeg -i film.mp4 -vn -ac 1 -ar 16000 film.wav</code></p>
+      </details>
+    </section>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const SR = 16000;
+
+/* ---------- storage (best effort) ---------- */
+const store = {
+  get(k){ try { return localStorage.getItem('zirnevis.'+k); } catch { return null; } },
+  set(k,v){ try { v==null ? localStorage.removeItem('zirnevis.'+k) : localStorage.setItem('zirnevis.'+k, v); } catch {} }
+};
+
+/* ---------- languages ---------- */
+const LANGS = {
+  'fa-IR': { iso:'fa', name:'Persian (Farsi)' },
+  'en-US': { iso:'en', name:'English' },
+  'en-GB': { iso:'en', name:'English' },
+  'ar-SA': { iso:'ar', name:'Arabic' },
+};
+
+/* ---------- HTTP with retries ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Google's APIs also accept a "simple" request: key in the URL, body sent as text/plain, no custom headers.
+// That skips the browser's CORS preflight, which is what usually fails. We switch to it after the first network error.
+const simpleMode = {};
+function blockedMsg(host){
+  const where = location.protocol === 'file:' ? 'You opened this page straight from disk. Serve it instead (run "npx serve" in its folder and open the localhost link), or host it on Vercel.'
+    : window.top !== window ? 'This page is running inside a preview frame, which blocks outside requests. Open the file directly in Chrome.'
+    : 'A browser extension (ad or privacy blocker) or a network filter may be blocking it. Try a private window with extensions off.';
+  return 'The browser blocked the request to ' + host + ' before it reached the server. ' + where;
+}
+async function req(url, opts, tries = 3, simple){
+  const host = new URL(url).host;
+  for (let i = 0; ; i++){
+    let res;
+    const useSimple = simple && simpleMode[host];
+    try { res = useSimple ? await fetch(simple.url, { method:'POST', body: simple.body, signal: opts.signal }) : await fetch(url, opts); }
+    catch (e){
+      if (opts.signal && opts.signal.aborted) throw e;
+      if (simple && !simpleMode[host]){ simpleMode[host] = true; log('Normal request to ' + host + ' was blocked (' + e.message + '). Trying the simple request form.'); i--; continue; }
+      if (i >= tries) throw new Error(blockedMsg(host) + ' [' + e.name + ': ' + e.message + ']');
+      await sleep(1500 * 2 ** i); continue;
+    }
+    if (res.ok) return res.json();
+    const txt = await res.text();
+    if ((res.status === 429 || res.status >= 500) && i < tries){ await sleep(2500 * 2 ** i); continue; }
+    let msg = txt;
+    try { const j = JSON.parse(txt); msg = (j.error && (j.error.message || j.error)) || (j.detail && (j.detail.message || j.detail)) || j.message || txt; } catch {}
+    if (typeof msg !== 'string') msg = JSON.stringify(msg);
+    throw new Error(res.status + ': ' + msg.slice(0, 400));
+  }
+}
+
+/* ---------- engines ---------- */
+// Each run() gets one chunk and returns {words:[{t,s,e,brk}]} or {segs:[{s,e,t}]}, times relative to the chunk.
+const sec = v => v == null ? 0 : typeof v === 'object' ? (+v.seconds || 0) + (+v.nanos || 0) / 1e9 : parseFloat(v);
+
+function oaiLike(base){
+  return async ({ wav, cfg, signal }) => {
+    const fd = new FormData();
+    fd.append('file', wav, 'chunk.wav');
+    fd.append('model', cfg.model);
+    fd.append('language', cfg.lang.iso);
+    fd.append('response_format', 'verbose_json');
+    fd.append('timestamp_granularities[]', 'word');
+    fd.append('timestamp_granularities[]', 'segment');
+    fd.append('temperature', '0');
+    if (cfg.glossary) fd.append('prompt', cfg.glossary);
+    const r = await req(base + '/audio/transcriptions', { method:'POST', headers:{ Authorization:'Bearer ' + cfg.key }, body:fd, signal });
+    const segs = (r.segments || []).map(s => ({ s:s.start, e:s.end, t:s.text }));
+    if (r.words && r.words.length){
+      const ends = segs.map(s => s.e);
+      return { words: r.words.map(w => ({ t:w.word, s:w.start, e:w.end, brk: ends.some(x => Math.abs(x - w.end) < 0.06) })) };
+    }
+    if (!segs.length && r.text) return { segs:[{ s:0, e:cfg.dur, t:r.text }] };
+    return { segs };
+  };
+}
+
+const ENGINES = {
+  google: {
+    name:'Google Speech-to-Text', pick:'best for Persian',
+    blurb:'Cloud Speech API (v1), word-level timing. Sends 55-second pieces.',
+    models:['default','latest_long','latest_short'], chunk:55, conc:4,
+    keyHint:'A Google Cloud API key with the Cloud Speech-to-Text API enabled on its project.',
+    test: k => ({ url:'https://speech.googleapis.com/v1/operations?key=' + encodeURIComponent(k) }),
+    async run({ b64, cfg, signal }){
+      const config = { encoding:'LINEAR16', sampleRateHertz:SR, audioChannelCount:1, languageCode:cfg.langCode,
+        enableWordTimeOffsets:true, enableAutomaticPunctuation:true, maxAlternatives:1 };
+      if (cfg.model && cfg.model !== 'default') config.model = cfg.model;
+      if (cfg.phrases.length) config.speechContexts = [{ phrases: cfg.phrases.slice(0, 500) }];
+      const url = 'https://speech.googleapis.com/v1/speech:recognize?key=' + encodeURIComponent(cfg.key);
+      const payload = JSON.stringify({ config, audio:{ content: await b64() } });
+      const r = await req(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: payload, signal }, 3, { url, body: payload });
+      const words = [], segs = [];
+      for (const res of r.results || []){
+        const alt = res.alternatives && res.alternatives[0]; if (!alt) continue;
+        if (alt.words && alt.words.length) alt.words.forEach((w, i, a) => words.push({ t:w.word, s:sec(w.startTime), e:sec(w.endTime), brk: i === a.length - 1 }));
+        else if (alt.transcript) segs.push({ s:0, e:sec(res.resultEndTime) || cfg.dur, t:alt.transcript });
+      }
+      return words.length ? { words } : { segs };
+    }
+  },
+  gemini: {
+    name:'Google Gemini',
+    blurb:'Multimodal model writes timed segments. Good text, looser timing.',
+    models:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite'], chunk:120, conc:3,
+    keyHint:'A Gemini API key from Google AI Studio.',
+    test: k => ({ url:'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=' + encodeURIComponent(k) }),
+    async run({ b64, cfg, signal }){
+      const prompt = [
+        `Transcribe the speech in this ${cfg.dur.toFixed(1)}-second audio clip verbatim in ${cfg.lang.name}.`,
+        cfg.lang.iso === 'fa' ? 'Write in standard Persian script (ی and ک, use ZWNJ where Persian orthography needs it). Do not translate and do not romanise.' : 'Do not translate.',
+        'Return subtitle segments. Each segment: start and end in seconds from the start of THIS clip, and the spoken text.',
+        `Keep each segment under ${cfg.maxDur} seconds and about ${cfg.maxChars * 2} characters. Break at natural pauses and sentence ends.`,
+        'Skip silence, music and noise. Never invent words. If nothing is spoken, return an empty array.',
+        cfg.glossary ? 'Names and terms that may appear: ' + cfg.glossary : ''
+      ].filter(Boolean).join('\n');
+      const body = {
+        contents:[{ parts:[{ inline_data:{ mime_type:'audio/wav', data: await b64() } }, { text: prompt }] }],
+        generationConfig:{ temperature:0, responseMimeType:'application/json',
+          responseSchema:{ type:'ARRAY', items:{ type:'OBJECT', properties:{ start:{type:'NUMBER'}, end:{type:'NUMBER'}, text:{type:'STRING'} }, required:['start','end','text'] } } }
+      };
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(cfg.model) + ':generateContent';
+      const payload = JSON.stringify(body);
+      const r = await req(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': cfg.key }, body: payload, signal },
+        3, { url: url + '?key=' + encodeURIComponent(cfg.key), body: payload });
+      const part = r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts;
+      const txt = part ? part.map(p => p.text || '').join('') : '';
+      if (!txt) throw new Error('Gemini returned no text' + (r.candidates && r.candidates[0] && r.candidates[0].finishReason ? ' (' + r.candidates[0].finishReason + ')' : ''));
+      const arr = JSON.parse(txt);
+      return { segs: arr.map(x => ({ s: Math.max(0, Math.min(+x.start, cfg.dur)), e: Math.max(0, Math.min(+x.end, cfg.dur)), t: String(x.text || '') })).filter(x => x.e > x.s && x.t.trim()) };
+    }
+  },
+  openai: {
+    name:'OpenAI Whisper',
+    blurb:'whisper-1 with word timestamps. The gpt-4o transcribe models give no timestamps.',
+    models:['whisper-1'], chunk:600, conc:3,
+    keyHint:'An OpenAI API key (sk-…).',
+    test: k => ({ url:'https://api.openai.com/v1/models', headers:{ Authorization:'Bearer ' + k } }),
+    run: oaiLike('https://api.openai.com/v1')
+  },
+  elevenlabs: {
+    name:'ElevenLabs Scribe',
+    blurb:'Speech-to-text with word timing. Handles long pieces well.',
+    models:['scribe_v1','scribe_v2'], chunk:900, conc:2,
+    keyHint:'An ElevenLabs API key with speech-to-text access.',
+    test: k => ({ url:'https://api.elevenlabs.io/v1/models', headers:{ 'xi-api-key': k } }),
+    async run({ wav, cfg, signal }){
+      const fd = new FormData();
+      fd.append('file', wav, 'chunk.wav');
+      fd.append('model_id', cfg.model);
+      fd.append('language_code', cfg.lang.iso);
+      fd.append('timestamps_granularity', 'word');
+      fd.append('tag_audio_events', 'false');
+      const r = await req('https://api.elevenlabs.io/v1/speech-to-text', { method:'POST', headers:{ 'xi-api-key': cfg.key }, body: fd, signal });
+      const words = (r.words || []).filter(w => w.type === 'word' || !w.type).map(w => ({ t:w.text, s:w.start, e:w.end }));
+      return words.length ? { words } : { segs: r.text ? [{ s:0, e:cfg.dur, t:r.text }] : [] };
+    }
+  },
+  groq: {
+    name:'Groq Whisper',
+    blurb:'Whisper large-v3 on Groq. Very fast, OpenAI-compatible.',
+    models:['whisper-large-v3','whisper-large-v3-turbo'], chunk:600, conc:3,
+    keyHint:'A Groq API key (gsk_…).',
+    test: k => ({ url:'https://api.groq.com/openai/v1/models', headers:{ Authorization:'Bearer ' + k } }),
+    run: oaiLike('https://api.groq.com/openai/v1')
+  }
+};
+
+/* ---------- audio ---------- */
+async function decodeFile(file){
+  const buf = await file.arrayBuffer();
+  const ctx = new OfflineAudioContext(1, SR, SR);
+  const ab = await ctx.decodeAudioData(buf);           // resampled to 16 kHz
+  const n = ab.length, out = new Float32Array(n);
+  for (let c = 0; c < ab.numberOfChannels; c++){
+    const d = ab.getChannelData(c);
+    for (let i = 0; i < n; i++) out[i] += d[i] / ab.numberOfChannels;
+  }
+  return out;
+}
+
+// Split near the target length, cutting at the quietest 20 ms frame in the last 6 seconds.
+function makeChunks(pcm, target){
+  const n = pcm.length, step = Math.round(target * SR), win = 6 * SR, frame = 320, chunks = [];
+  let start = 0;
+  while (start < n){
+    let end = start + step;
+    if (end >= n - 2 * SR){ chunks.push({ start, end:n }); break; }
+    let best = end, bestE = Infinity;
+    for (let f = end - win; f + frame <= end; f += frame){
+      let e = 0; for (let i = f; i < f + frame; i++) e += pcm[i] * pcm[i];
+      if (e < bestE){ bestE = e; best = f + frame / 2; }
+    }
+    end = Math.round(best);
+    chunks.push({ start, end });
+    start = end;
+  }
+  return chunks.map((c, i) => ({ ...c, i, off: c.start / SR, dur: (c.end - c.start) / SR, state:'pending', result:null }));
+}
+
+function toWav(pcm){
+  const n = pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8,'WAVE'); w(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,SR,true); v.setUint32(28,SR*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++){ const s = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type:'audio/wav' });
+}
+const blobToB64 = b => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(b); });
+
+/* ---------- cue building ---------- */
+function segsToWords(segs){
+  const out = [];
+  for (const sg of segs){
+    const parts = sg.t.trim().split(/\s+/).filter(Boolean); if (!parts.length) continue;
+    const total = parts.reduce((a, p) => a + p.length + 1, 0), span = sg.e - sg.s;
+    let t = sg.s;
+    parts.forEach((p, i) => { const d = span * (p.length + 1) / total; out.push({ t:p, s:t, e:t + d, brk: i === parts.length - 1 }); t += d; });
+  }
+  return out;
+}
+function normalizeText(t, fa){
+  let s = t.replace(/\s+/g, ' ').trim();
+  if (fa) s = s.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ى/g, 'ی');
+  return s.replace(/\s+([،؛.!?؟:,])/g, '$1');
+}
+function wrap(t, max){
+  if (t.length <= max) return t;
+  const mid = t.length / 2; let best = -1;
+  for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+  return best < 0 ? t : t.slice(0, best) + '\n' + t.slice(best + 1);
+}
+function buildCues(words, o){
+  const cues = []; let cur = null;
+  const close = () => { if (cur){ cues.push(cur); cur = null; } };
+  for (const w of words){
+    const t = String(w.t || '').trim(); if (!t) continue;
+    if (cur){
+      const gap = w.s - cur.e, next = cur.text + ' ' + t;
+      if (gap > 0.8 || next.length > o.maxChars * 2 || w.e - cur.s > o.maxDur) close();
+    }
+    if (!cur) cur = { s:w.s, e:w.e, text:t }; else { cur.text += ' ' + t; cur.e = Math.max(cur.e, w.e); }
+    if (w.brk || (/[.!?؟…]$/.test(t) && cur.text.length > o.maxChars * 0.6)) close();
+  }
+  close();
+  cues.sort((a, b) => a.s - b.s);
+  for (let i = 0; i < cues.length; i++){
+    const c = cues[i], nx = cues[i + 1];
+    if (c.e - c.s < 1) c.e = c.s + 1;
+    if (nx && c.e > nx.s - 0.04) c.e = Math.max(c.s + 0.3, nx.s - 0.04);
+    c.text = wrap(normalizeText(c.text, o.fa), o.maxChars);
+  }
+  return cues.filter(c => c.text);
+}
+
+/* ---------- SRT / VTT ---------- */
+const pad = (n, l = 2) => String(n).padStart(l, '0');
+function ts(t, sep = ','){ t = Math.max(0, t); const ms = Math.round(t * 1000); return pad(Math.floor(ms / 3600000)) + ':' + pad(Math.floor(ms / 60000) % 60) + ':' + pad(Math.floor(ms / 1000) % 60) + sep + pad(ms % 1000, 3); }
+const toSRT = cues => cues.map((c, i) => `${i + 1}\n${ts(c.s)} --> ${ts(c.e)}\n${c.text}\n`).join('\n');
+const toVTT = cues => 'WEBVTT\n\n' + cues.map(c => `${ts(c.s, '.')} --> ${ts(c.e, '.')}\n${c.text}\n`).join('\n');
+function parseTime(s){ const m = s.trim().match(/(\d+):(\d+):(\d+)[,.](\d+)/); return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 1000 : NaN; }
+function parseSRT(txt){
+  const out = [];
+  for (const block of txt.replace(/\r/g, '').split(/\n\s*\n/)){
+    const lines = block.split('\n'); const k = lines.findIndex(l => l.includes('-->'));
+    if (k < 0) continue;
+    const [a, b] = lines[k].split('-->'); const s = parseTime(a), e = parseTime(b);
+    const text = lines.slice(k + 1).join('\n').trim();
+    if (!isNaN(s) && !isNaN(e) && text) out.push({ s, e, text });
+  }
+  return out;
+}
+
+/* ---------- UI state ---------- */
+const S = { file:null, url:null, pcm:null, pcmFor:null, chunks:[], cues:[], abort:null, media:null, engine:'google' };
+const EXAMPLE = `1
+00:00:01,200 --> 00:00:03,900
+سلام، به برنامهٔ امشب خوش آمدید.
+
+2
+00:00:04,300 --> 00:00:07,100
+امشب دربارهٔ سینمای ایران
+در دههٔ پنجاه صحبت می‌کنیم.
+
+3
+00:00:07,600 --> 00:00:10,400
+مهمان ما کارگردانی است
+که چهل سال پشت دوربین بوده.
+`;
+
+function log(m, err){ const el = $('#log'); const d = document.createElement('div'); if (err) d.className = 'e'; d.textContent = new Date().toLocaleTimeString() + '  ' + m; el.appendChild(d); el.scrollTop = el.scrollHeight; }
+function setMsg(m, err){ const el = $('#msg'); el.textContent = m; el.classList.toggle('err', !!err); }
+const fmtDur = s => { s = Math.round(s); return (s >= 3600 ? Math.floor(s / 3600) + ':' + pad(Math.floor(s / 60) % 60) : Math.floor(s / 60)) + ':' + pad(s % 60); };
+
+function renderEngines(){
+  const box = $('#engines'); box.textContent = '';
+  for (const [id, e] of Object.entries(ENGINES)){
+    const l = document.createElement('label'); l.className = 'engine';
+    const r = document.createElement('input'); r.type = 'radio'; r.name = 'engine'; r.value = id; r.id = 'eng-' + id; r.checked = id === S.engine;
+    r.addEventListener('change', () => selectEngine(id));
+    const n = document.createElement('span'); n.textContent = e.name;
+    if (e.pick){ const p = document.createElement('em'); p.className = 'pick'; p.textContent = e.pick; p.style.fontStyle = 'normal'; n.appendChild(p); }
+    const b = document.createElement('small'); b.textContent = e.blurb;
+    l.append(r, n, b); box.appendChild(l);
+  }
+}
+function selectEngine(id){
+  S.engine = id; store.set('engine', id);
+  const e = ENGINES[id];
+  const dl = $('#models'); dl.textContent = '';
+  e.models.forEach(m => { const o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+  $('#model').value = store.get('model.' + id) || e.models[0];
+  const k = store.get('key.' + id); $('#key').value = k || ''; $('#remember').checked = !!k;
+  $('#keylabel').textContent = e.name + ' API key';
+  $('#keyhint').textContent = e.keyHint;
+  updateRun();
+}
+function updateRun(){ $('#run').disabled = !(S.file && $('#key').value.trim() && $('#model').value.trim()) || !!S.abort; }
+
+function setFile(f){
+  if (!f) return;
+  S.file = f; if (S.url) URL.revokeObjectURL(S.url); S.url = URL.createObjectURL(f);
+  const isVideo = f.type.startsWith('video') || /\.(mp4|mov|mkv|webm|m4v|avi)$/i.test(f.name);
+  const stage = $('#stage'); stage.textContent = '';
+  const m = document.createElement(isVideo ? 'video' : 'audio'); m.controls = true; m.src = S.url; m.preload = 'metadata'; m.playsInline = true;
+  const cap = document.createElement('div'); cap.className = 'caption'; cap.setAttribute('dir', 'auto'); cap.appendChild(document.createElement('span'));
+  stage.append(m, cap); S.media = m;
+  m.addEventListener('timeupdate', syncCaption);
+  m.addEventListener('loadedmetadata', () => { $('#fileinfo').textContent = `${f.name} · ${(f.size / 1048576).toFixed(1)} MB · ${isFinite(m.duration) ? fmtDur(m.duration) : 'length unknown'}`; });
+  $('#fileinfo').textContent = `${f.name} · ${(f.size / 1048576).toFixed(1)} MB`;
+  if (f.size > 600 * 1048576) log('Large file. If the browser runs out of memory, extract the audio with ffmpeg first (see tips).');
+  syncCaption(); updateRun();
+}
+
+function syncCaption(){
+  const m = S.media; if (!m) return;
+  const t = m.currentTime; const c = S.cues.find(c => t >= c.s && t <= c.e);
+  const span = $('#stage .caption span'); if (span){ span.textContent = c ? c.text : ''; span.style.display = c ? '' : 'none'; }
+  document.querySelectorAll('.cue').forEach(el => el.classList.toggle('now', !!c && +el.dataset.i === S.cues.indexOf(c)));
+}
+
+function renderCues(){
+  const box = $('#cues'); box.textContent = '';
+  const frag = document.createDocumentFragment();
+  S.cues.forEach((c, i) => {
+    const b = document.createElement('button'); b.className = 'cue'; b.dataset.i = i; b.type = 'button';
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = i + 1;
+    const t = document.createElement('span'); t.className = 't'; t.textContent = ts(c.s).slice(0, 11);
+    const x = document.createElement('span'); x.className = 'x'; x.textContent = c.text;
+    b.append(n, t, x);
+    b.addEventListener('click', () => { if (S.media){ S.media.currentTime = c.s + 0.01; S.media.play().catch(() => {}); } });
+    frag.appendChild(b);
+  });
+  box.appendChild(frag);
+  $('#count').textContent = S.cues.length ? S.cues.length + ' cues · ' + fmtDur(S.cues[S.cues.length - 1].e) : '';
+  syncCaption();
+}
+function setCues(cues, fromText){ S.cues = cues; if (!fromText) $('#srt').value = toSRT(cues); renderCues(); }
+
+function renderStrip(){
+  const st = $('#strip'); st.textContent = '';
+  for (const c of S.chunks){ const i = document.createElement('i'); i.style.flexGrow = c.dur; i.className = c.state === 'pending' ? '' : c.state; i.title = `${fmtDur(c.off)}–${fmtDur(c.off + c.dur)} · ${c.state}`; st.appendChild(i); }
+  if (!S.chunks.length) st.appendChild(document.createElement('i'));
+}
+
+/* ---------- run ---------- */
+function config(){
+  const langCode = $('#lang').value;
+  const glossary = $('#glossary').value.trim();
+  return {
+    key: $('#key').value.trim(), model: $('#model').value.trim(), langCode, lang: LANGS[langCode],
+    glossary, phrases: glossary ? glossary.split(/[,،\n]/).map(s => s.trim()).filter(Boolean) : [],
+    maxChars: Math.max(20, +$('#maxChars').value || 42), maxDur: Math.max(2, +$('#maxDur').value || 6),
+    fa: $('#normalize').checked && langCode.startsWith('fa')
+  };
+}
+
+async function pool(items, n, fn){
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length){ const k = i++; await fn(items[k]); } }));
+}
+
+function assemble(cfg){
+  const words = [];
+  for (const c of S.chunks){
+    if (!c.result) continue;
+    const ws = c.result.words && c.result.words.length ? c.result.words : segsToWords(c.result.segs || []);
+    ws.forEach((w, j) => words.push({ t:w.t, s:w.s + c.off, e:w.e + c.off, brk: w.brk || j === ws.length - 1 }));
+  }
+  words.sort((a, b) => a.s - b.s);
+  return buildCues(words, cfg);
+}
+
+async function transcribe(onlyFailed){
+  const cfg = config(), eng = ENGINES[S.engine];
+  if ($('#remember').checked) store.set('key.' + S.engine, cfg.key); else store.set('key.' + S.engine, null);
+  store.set('model.' + S.engine, cfg.model);
+  S.abort = new AbortController(); const signal = S.abort.signal;
+  $('#run').disabled = true; $('#stop').hidden = false; $('#retry').hidden = true; $('#example').hidden = true;
+  try {
+    if (!onlyFailed){
+      if (S.pcmFor !== S.file){
+        setMsg('Reading audio…'); log('Decoding ' + S.file.name);
+        S.pcm = await decodeFile(S.file); S.pcmFor = S.file;
+        log('Audio length ' + fmtDur(S.pcm.length / SR));
+      }
+      S.chunks = makeChunks(S.pcm, eng.chunk); S.chunkEngine = S.engine;
+      log(`${eng.name} · ${cfg.model} · ${S.chunks.length} piece${S.chunks.length > 1 ? 's' : ''}`);
+    }
+    const todo = S.chunks.filter(c => c.state !== 'done');
+    todo.forEach(c => { c.state = 'pending'; }); renderStrip();
+    let done = S.chunks.length - todo.length;
+    setMsg(`Transcribing… ${done}/${S.chunks.length}`);
+    await pool(todo, eng.conc, async c => {
+      if (signal.aborted) return;
+      c.state = 'active'; renderStrip();
+      const slice = S.pcm.subarray(c.start, c.end);
+      const wav = toWav(slice); let b64c = null;
+      try {
+        c.result = await eng.run({ wav, b64: async () => b64c || (b64c = await blobToB64(wav)), cfg: { ...cfg, dur: c.dur }, signal });
+        c.state = 'done';
+      } catch (e){
+        if (signal.aborted){ c.state = 'pending'; return; }
+        c.state = 'fail'; log(`Piece ${c.i + 1} (${fmtDur(c.off)}): ${e.message}`, true);
+      }
+      done = S.chunks.filter(x => x.state === 'done').length;
+      setMsg(`Transcribing… ${done}/${S.chunks.length}`); renderStrip();
+      setCues(assemble(cfg));
+    });
+    const failed = S.chunks.filter(c => c.state === 'fail').length;
+    setCues(assemble(cfg));
+    if (signal.aborted) setMsg('Stopped. Partial subtitles kept.');
+    else if (failed){ setMsg(`${failed} piece${failed > 1 ? 's' : ''} failed. See the log, then retry.`, true); $('#retry').hidden = false; }
+    else { setMsg('Done. Review the cues, then download.'); log('Finished: ' + S.cues.length + ' cues'); }
+  } catch (e){
+    if (!signal.aborted){ setMsg(e.name === 'EncodingError' || /decode/i.test(e.message) ? 'This file could not be decoded. Try converting it to WAV or MP3 first.' : e.message, true); log(e.message, true); }
+  } finally {
+    S.abort = null; $('#stop').hidden = true; updateRun();
+  }
+}
+
+/* ---------- download / copy ---------- */
+function download(name, text, type){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + text], { type })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const baseName = () => S.file ? S.file.name.replace(/\.[^.]+$/, '') : 'subtitles';
+
+/* ---------- wiring ---------- */
+const fileIn = $('#file'), drop = $('#drop');
+drop.addEventListener('click', () => fileIn.click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileIn.click(); } });
+fileIn.addEventListener('change', () => setFile(fileIn.files[0]));
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => setFile(e.dataTransfer.files[0]));
+$('#key').addEventListener('input', updateRun);
+$('#model').addEventListener('input', updateRun);
+$('#remember').addEventListener('change', () => { if (!$('#remember').checked) store.set('key.' + S.engine, null); });
+['maxChars','maxDur','normalize','lang','glossary'].forEach(id => $('#' + id).addEventListener('change', () => {
+  store.set('opt.' + id, $('#' + id).type === 'checkbox' ? String($('#' + id).checked) : $('#' + id).value);
+  if (S.chunks.some(c => c.result)) setCues(assemble(config()));   // re-flow cues with new rules, no new API calls
+}));
+$('#run').addEventListener('click', () => transcribe(false));
+$('#test').addEventListener('click', async () => {
+  const eng = ENGINES[S.engine], key = $('#key').value.trim();
+  if (!key){ setMsg('Paste an API key first.', true); return; }
+  const t = eng.test(key), host = new URL(t.url).host;
+  setMsg('Testing ' + eng.name + '…');
+  let res;
+  try { res = await fetch(t.url, { headers: t.headers || {} }); }
+  catch (e){ setMsg('Blocked before reaching ' + host + '. See the log.', true); log(blockedMsg(host) + ' [' + e.message + ']', true); return; }
+  if (res.ok){ setMsg(eng.name + ' is reachable and the key works.'); log('Test OK: ' + host); return; }
+  let m = ''; try { const j = await res.json(); m = (j.error && (j.error.message || j.error)) || (j.detail && (j.detail.message || j.detail)) || ''; } catch {}
+  if (typeof m !== 'string') m = JSON.stringify(m);
+  const why = res.status === 401 || res.status === 403 ? 'The server was reached but rejected the key or its permissions.' : res.status === 400 ? 'The server was reached; it says the request or key is invalid.' : 'The server was reached but returned an error.';
+  setMsg(why, true); log('Test ' + host + ' → ' + res.status + ' ' + m, true);
+});
+$('#retry').addEventListener('click', () => transcribe(true));
+$('#stop').addEventListener('click', () => S.abort && S.abort.abort());
+let tmr; $('#srt').addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => setCues(parseSRT($('#srt').value), true), 300); });
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  $('#cues').hidden = b.dataset.tab !== 'list'; $('#srt').hidden = b.dataset.tab !== 'text';
+}));
+$('#dlSrt').addEventListener('click', () => download(baseName() + '.srt', toSRT(S.cues), 'application/x-subrip'));
+$('#dlVtt').addEventListener('click', () => download(baseName() + '.vtt', toVTT(S.cues), 'text/vtt'));
+$('#copy').addEventListener('click', async () => {
+  const t = toSRT(S.cues);
+  try { await navigator.clipboard.writeText(t); setMsg('SRT copied.'); }
+  catch { const ta = $('#srt'); ta.value = t; document.querySelector('[data-tab=text]').click(); ta.select(); setMsg('Select-all done. Press Ctrl/Cmd+C to copy.'); }
+});
+
+/* ---------- boot ---------- */
+['maxChars','maxDur','lang','glossary'].forEach(id => { const v = store.get('opt.' + id); if (v != null) $('#' + id).value = v; });
+{ const v = store.get('opt.normalize'); if (v != null) $('#normalize').checked = v === 'true'; }
+S.engine = ENGINES[store.get('engine')] ? store.get('engine') : 'google';
+renderEngines(); selectEngine(S.engine);
+if (window.top !== window) log('Note: this page is inside a frame. If requests are blocked, open the file directly in your browser.');
+else if (location.protocol === 'file:') log('Opened from disk. If an engine is blocked, run "npx serve" in this folder and open the localhost link.');
+$('#srt').value = EXAMPLE; setCues(parseSRT(EXAMPLE), true); renderStrip();
+</script>
+</body>
+</html>
